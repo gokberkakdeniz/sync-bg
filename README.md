@@ -13,7 +13,7 @@ Set sync folder
 Sync images
 > python sync-bg.py -S
 
-Sync images and update windows wallpaper to latest image
+Sync images and change windows wallpaper to latest image
 > python sync-bg.py -Su
 
 Run "sync-bg.py -S" on startup
