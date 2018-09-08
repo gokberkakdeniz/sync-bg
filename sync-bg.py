@@ -4,7 +4,7 @@ from os.path import isfile, join, dirname, getctime, realpath
 from ctypes import windll
 from sys import executable as pyexe
 import argparse
-import get_image_size as img # https://github.com/scardine/image_size
+import imagesize as img # https://pypi.org/project/imagesize/#history
 import configparser
 from shutil import copy2
 import codecs
@@ -16,7 +16,7 @@ class syncbg:
         self.default_resolution = windll.user32.GetSystemMetrics(0), windll.user32.GetSystemMetrics(1)
         self.folder = join(environ['USERPROFILE'], "AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets")
         self.config = configparser.ConfigParser()
-        self.config.readfp(codecs.open(join(dirname(realpath(__file__)), "sync-bg.ini"), "r", "utf8"))
+        self.config.read_file(codecs.open(join(dirname(realpath(__file__)), "sync-bg.ini"), "r", "utf8"))
         self.sync_dir = self.config['syncbg']['sync_dir']
         if len(self.sync_dir) == 0:
             self.sync_dir = join(environ['USERPROFILE'], "Pictures")
@@ -38,7 +38,7 @@ class syncbg:
             return hasher.hexdigest()
         print("Synchronizing...")
         for fn in listdir(self.folder):
-            if self.default_resolution == img.get_image_size(join(self.folder, fn)):
+            if self.default_resolution == img.get(join(self.folder, fn)):
                 if isfile(join(self.sync_dir, get_file_hash(join(self.folder, fn)) + ".png")):
                     print("{} -> {}\t{}".format(fn, get_file_hash(join(self.folder, fn)) + ".png", "\x1B[31mOLD\x1B[0m"))
                 else:
@@ -49,6 +49,16 @@ class syncbg:
             f.write(strftime("%d.%m.%Y - %H:%M:%S"))
             f.close()
             print("Synchronizing has been finished!")
+
+    def add_startup_script(update = False):
+        reg = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_WRITE)
+        winreg.SetValueEx(reg, "SYNC_BG", 0, winreg.REG_SZ, join(dirname(pyexe), "pythonw.exe") + " \"" + realpath(__file__) + "\" -S" + ("u" if update == True else ""))
+        winreg.CloseKey(reg)
+
+    def remove_startup_script():
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_ALL_ACCESS)
+        winreg.DeleteValue(key, "SYNC_BG")
+        winreg.CloseKey(key)
 
 parser = argparse.ArgumentParser(description="Sync Windows Spotlight pictures", formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument("-S", action="store_true", help="sync pictures")
@@ -70,20 +80,15 @@ if args.sd:
     except Exception as e:
         raise e
 elif args.Si:
-    reg = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_WRITE)
-    winreg.SetValueEx(reg, "SYNC_BG", 0, winreg.REG_SZ, join(dirname(pyexe), "pythonw.exe") + " \"" + realpath(__file__) + "\" -S")
-    winreg.CloseKey(reg)
+    sb.add_startup_script()
 elif args.Siu:
-    reg = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_WRITE)
-    winreg.SetValueEx(reg, "SYNC_BG", 0, winreg.REG_SZ, join(dirname(pyexe), "pythonw.exe") + " \"" + realpath(__file__) + "\" -Su")
-    winreg.CloseKey(reg)
+    sb.add_startup_script(True)
 elif args.R:
-    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_ALL_ACCESS)
-    winreg.DeleteValue(key, "SYNC_BG")
-    winreg.CloseKey(key)
-
-if args.S:
+    sb.remove_startup_script()
+elif args.S:
     sb.sync_folder()
 elif args.Su:
     sb.sync_folder()
     sb.update_bg()
+else:
+	print("for usage: sync-bg.py -h")
