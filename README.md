@@ -27,4 +27,4 @@ Remove startup script
 
 ----------
 
-**Dependency:** *[Python image size library](https://github.com/scardine/image_size)*
+**Dependency:** *[Python image size library](https://pypi.org/project/imagesize/)*
